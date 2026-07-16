@@ -1,0 +1,9 @@
+[package]
+name = "dealer"
+version = "0.1.0"
+edition = "2024"
+description = "Discreet JavaScript dependency delivery."
+license = "UNLICENSED"
+
+[dependencies]
+regex = "1.13.1"
