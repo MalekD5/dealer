@@ -1,7 +1,10 @@
-use crate::manifest::manifest::PackageManifest;
 use clap::{Parser, Subcommand};
 
-use super::run::{self, RunArgs};
+use super::{
+    init,
+    run::{self, RunArgs},
+};
+use crate::manifest::manifest::PackageManifest;
 
 pub type CommandResult = Result<(), Box<dyn std::error::Error>>;
 
@@ -14,13 +17,25 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    Run { script_name: String },
+    /// Create a package.json in the current directory
+    Init,
+    Run {
+        script_name: String,
+    },
 }
 
-pub fn read_input(mut package_manifest: PackageManifest) -> CommandResult {
+pub fn read_input() -> CommandResult {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::Run { script_name } => run::run(RunArgs { script_name }, &mut package_manifest),
+        Command::Init => init::init(),
+        Command::Run { script_name } => {
+            let project_directory = std::env::current_dir()?;
+            let mut package_manifest =
+                PackageManifest::new(project_directory.to_string_lossy().into_owned())
+                    .map_err(std::io::Error::other)?;
+
+            run::run(RunArgs { script_name }, &mut package_manifest)
+        }
     }
 }

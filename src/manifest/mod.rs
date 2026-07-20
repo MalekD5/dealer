@@ -2,3 +2,4 @@
 
 pub mod json_loader;
 pub mod manifest;
+pub mod package_name;

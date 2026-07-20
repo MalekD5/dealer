@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use serde_json::Value;
 
 use crate::manifest::json_loader::ManifestLoader;
+use crate::manifest::package_name::validate_package_name;
 
 pub struct PackageManifest {
     pub name: String,
@@ -25,6 +26,7 @@ impl PackageManifest {
             .and_then(Value::as_str)
             .ok_or_else(|| "`name` is missing or is not a string".to_string())?
             .to_string();
+        validate_package_name(&name).map_err(|error| format!("invalid package name: {error}"))?;
 
         let version = data
             .get("version")
