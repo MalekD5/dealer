@@ -1,6 +1,5 @@
 mod cli;
 mod manifest;
-mod semver;
 
 use cli::CommandResult;
 use manifest::manifest::PackageManifest;

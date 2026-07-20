@@ -7,6 +7,7 @@ use crate::manifest::json_loader::ManifestLoader;
 pub struct PackageManifest {
     pub name: String,
     pub version: String,
+    #[allow(dead_code)]
     pub description: Option<String>,
     pub scripts: HashMap<String, String>,
 }
