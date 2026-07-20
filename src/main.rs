@@ -1,4 +1,8 @@
-mod semver;
+mod cli;
+mod manifest;
 
-fn main() {
+use cli::CommandResult;
+
+fn main() -> CommandResult {
+    cli::read_input()
 }
