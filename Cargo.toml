@@ -6,4 +6,5 @@ description = "Discreet JavaScript dependency delivery."
 license = "UNLICENSED"
 
 [dependencies]
+clap = { version = "4.6.2", features = ["derive"] }
 serde_json = "1.0.151"
