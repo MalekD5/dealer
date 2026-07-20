@@ -4,7 +4,7 @@ use std::fs;
 
 pub(crate) struct ManifestLoader {
     base_url: String,
-    pub json: Result<Value>
+    pub json: Result<Value>,
 }
 
 impl ManifestLoader {
@@ -15,9 +15,6 @@ impl ManifestLoader {
 
         let json = serde_json::from_str::<Value>(&contents);
 
-        ManifestLoader {
-            base_url,
-            json
-        }
+        ManifestLoader { base_url, json }
     }
 }

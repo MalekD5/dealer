@@ -2,7 +2,6 @@
   "name": "hello_world",
   "description": "a very simple hello world dealer project!",
   "version": "0.0.1",
-  "dependencies": {},
   "scripts": {
     "start": "node index.js"
   }
