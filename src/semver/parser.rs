@@ -79,17 +79,23 @@ impl Parser {
         }
         if let Some(value) = expression.strip_prefix('^') {
             let version = parse_version(value)?;
-            let upper = if version.major == 0 {
+            let upper = if version.major > 0 {
+                Version {
+                    major: increment(version.major, expression)?,
+                    minor: 0,
+                    patch: 0,
+                }
+            } else if version.minor > 0 {
                 Version {
                     major: 0,
-                    minor: version.minor + 1,
+                    minor: increment(version.minor, expression)?,
                     patch: 0,
                 }
             } else {
                 Version {
-                    major: version.major + 1,
+                    major: 0,
                     minor: 0,
-                    patch: 0,
+                    patch: increment(version.patch, expression)?,
                 }
             };
             return Ok(range(version, upper));
@@ -98,7 +104,7 @@ impl Parser {
             let version = parse_version(value)?;
             let upper = Version {
                 major: version.major,
-                minor: version.minor + 1,
+                minor: increment(version.minor, expression)?,
                 patch: 0,
             };
             return Ok(range(version, upper));
@@ -114,7 +120,7 @@ impl Parser {
                     patch: 0,
                 },
                 Version {
-                    major: major + 1,
+                    major: increment(major, expression)?,
                     minor: 0,
                     patch: 0,
                 },
@@ -131,7 +137,7 @@ impl Parser {
                 },
                 Version {
                     major,
-                    minor: minor + 1,
+                    minor: increment(minor, expression)?,
                     patch: 0,
                 },
             ));
@@ -150,6 +156,12 @@ fn parse_version(value: &str) -> Result<Version, ParseError> {
 
 fn parse_number(value: &str, expression: &str) -> Result<u64, ParseError> {
     value.parse().map_err(|_| ParseError::new(expression))
+}
+
+fn increment(value: u64, expression: &str) -> Result<u64, ParseError> {
+    value
+        .checked_add(1)
+        .ok_or_else(|| ParseError::new(expression))
 }
 
 fn is_wildcard(value: &str) -> bool {
