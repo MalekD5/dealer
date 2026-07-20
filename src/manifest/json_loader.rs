@@ -3,7 +3,6 @@ use serde_json::{Result, Value};
 use std::fs;
 
 pub(crate) struct ManifestLoader {
-    base_url: String,
     pub json: Result<Value>,
 }
 
@@ -15,6 +14,6 @@ impl ManifestLoader {
 
         let json = serde_json::from_str::<Value>(&contents);
 
-        ManifestLoader { base_url, json }
+        ManifestLoader { json }
     }
 }
