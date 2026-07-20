@@ -16,6 +16,9 @@ pub fn run(args: RunArgs, context: &mut PackageManifest) -> CommandResult {
         .get(&script_name)
         .ok_or_else(|| format!("script `{script_name}` was not found"))?;
 
+    println!("> {}@{} {script_name}", context.name, context.version);
+    println!("> {script}");
+
     #[cfg(target_os = "windows")]
     let mut command = {
         let mut command = Command::new("cmd");
