@@ -5,14 +5,16 @@ use serde_json::Value;
 use crate::manifest::json_loader::ManifestLoader;
 
 pub struct PackageManifest {
-    name: String,
-    version: String,
-    description: Option<String>,
-    scripts: HashMap<String, String>,
+    pub name: String,
+    pub version: String,
+    pub description: Option<String>,
+    pub scripts: HashMap<String, String>,
 }
 
 impl PackageManifest {
-    pub fn new(manifest_loader: ManifestLoader) -> Result<PackageManifest, String> {
+    pub fn new(base_url: String) -> Result<PackageManifest, String> {
+        let manifest_loader = ManifestLoader::new(base_url);
+
         let data = manifest_loader
             .json
             .map_err(|error| format!("failed to parse JSON: {error}"))?;
@@ -35,12 +37,8 @@ impl PackageManifest {
             .map(str::to_string);
 
         let scripts = match data.get("scripts") {
-            Some(value) => serde_json::from_value::<HashMap<String, String>>(
-                value.clone(),
-            )
-                .map_err(|error| {
-                    format!("`scripts` must contain only string values: {error}")
-                })?,
+            Some(value) => serde_json::from_value::<HashMap<String, String>>(value.clone())
+                .map_err(|error| format!("`scripts` must contain only string values: {error}"))?,
             None => HashMap::new(),
         };
 
