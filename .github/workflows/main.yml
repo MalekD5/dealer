@@ -1,0 +1,26 @@
+name: Platform tests
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: main-platform-tests
+  cancel-in-progress: false
+
+jobs:
+  platform-tests:
+    name: Rust tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run full Rust test suite
+        run: cargo test --locked --all-targets
