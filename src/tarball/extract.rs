@@ -11,7 +11,7 @@ use flate2::read::GzDecoder;
 
 use super::archive::{ArchiveReader, Entry, EntryKind};
 use crate::error::{Result, error};
-use crate::util::{has_drive_prefix, safe_components};
+use crate::util::{clone_file, clone_tree, has_drive_prefix, safe_components};
 
 /// Ceilings that keep a hostile archive from filling the disk.
 const MAX_DECOMPRESSED_BYTES: u64 = 512 * 1024 * 1024;
@@ -171,6 +171,23 @@ fn materialize_link(link: &PendingLink, destination: &Path) -> Result<()> {
         create_directory(parent)?;
     }
 
+    // Unix would happily create a link to nothing, but a package that installs
+    // there and fails on Windows is worse than one rejected on both, so the
+    // target is checked before any platform gets involved.
+    if !target.exists() {
+        let kind = if link.symbolic {
+            "symlink"
+        } else {
+            "hard link"
+        };
+
+        return Err(error(format!(
+            "`{}` is a {kind} to `{}`, which the package does not contain",
+            link.path.display(),
+            link.literal_target
+        )));
+    }
+
     #[cfg(unix)]
     if link.symbolic {
         return std::os::unix::fs::symlink(&link.literal_target, &path).map_err(|failure| {
@@ -184,28 +201,11 @@ fn materialize_link(link: &PendingLink, destination: &Path) -> Result<()> {
 
     // Hard links, and every link on Windows, are materialised as copies so the
     // extracted tree stays self contained and needs no elevated privileges.
-    let kind = if link.symbolic {
-        "symlink"
-    } else {
-        "hard link"
-    };
-    if !target.is_file() {
-        return Err(error(format!(
-            "`{}` is a {kind} to `{}`, which the package does not contain",
-            link.path.display(),
-            link.literal_target
-        )));
+    if target.is_dir() {
+        return clone_tree(&target, &path);
     }
 
-    fs::copy(&target, &path).map_err(|failure| {
-        error(format!(
-            "could not copy {} to {}: {failure}",
-            target.display(),
-            path.display()
-        ))
-    })?;
-
-    Ok(())
+    clone_file(&target, &path)
 }
 
 /// Validates an archive path and removes the single directory npm roots

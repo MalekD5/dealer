@@ -75,6 +75,61 @@ pub fn remove_any(path: &Path) -> Result<()> {
         .map_err(|failure| error(format!("could not remove {}: {failure}", path.display())))
 }
 
+/// Reproduces a directory tree, hard linking files so the copy costs no extra
+/// disk space, and falling back to a real copy where hard links are
+/// unavailable, such as across volumes.
+///
+/// Links inside the source are followed so the result stands on its own.
+pub fn clone_tree(source: &Path, target: &Path) -> Result<()> {
+    create_directory(target)?;
+
+    let entries = fs::read_dir(source)
+        .map_err(|failure| error(format!("could not read {}: {failure}", source.display())))?;
+
+    for entry in entries {
+        let entry =
+            entry.map_err(|failure| error(format!("could not read a directory: {failure}")))?;
+        let from = entry.path();
+        let to = target.join(entry.file_name());
+        let kind = entry
+            .file_type()
+            .map_err(|failure| error(format!("could not inspect {}: {failure}", from.display())))?;
+
+        let is_directory = if kind.is_symlink() {
+            fs::metadata(&from)
+                .map(|metadata| metadata.is_dir())
+                .unwrap_or(false)
+        } else {
+            kind.is_dir()
+        };
+
+        if is_directory {
+            clone_tree(&from, &to)?;
+        } else {
+            clone_file(&from, &to)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Places one file at `to`, preferring a hard link over a copy.
+pub fn clone_file(from: &Path, to: &Path) -> Result<()> {
+    if fs::hard_link(from, to).is_ok() {
+        return Ok(());
+    }
+
+    fs::copy(from, to).map_err(|failure| {
+        error(format!(
+            "could not place {} at {}: {failure}",
+            from.display(),
+            to.display()
+        ))
+    })?;
+
+    Ok(())
+}
+
 /// Splits a path that has to stay inside the directory it is relative to,
 /// rejecting absolute paths, Windows drive paths and `..` traversal.
 ///

@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 
 use crate::error::{Result, error};
 use crate::package::ResolvedPackage;
-use crate::util::{create_directory, remove_any, safe_components};
+use crate::util::{clone_tree, create_directory, remove_any, safe_components};
 
 /// One package to materialize, paired with where it sits in the store.
 #[derive(Debug)]
@@ -125,6 +125,11 @@ impl Linker {
                     create_directory(parent)?;
                 }
                 remove_any(&target)?;
+
+                // Hard linking is used in preference to a directory symlink
+                // because node resolves `require` through symlinks: a
+                // symlinked package would look for its own dependencies beside
+                // the store rather than in the project.
                 clone_tree(&request.store_path, &target)?;
                 report.linked.push(package.id());
             } else {
@@ -216,62 +221,4 @@ fn shim_target(package: &str, declared: &str) -> Result<String> {
         .map_err(|failure| error(format!("`{package}` declares a bin path that {failure}")))?;
 
     Ok(format!("{package}/{}", components.join("/")))
-}
-
-/// Copies a store entry into `node_modules`, hard linking files so a shared
-/// package costs disk space only once.
-///
-/// Hard links are used in preference to a directory symlink because node
-/// resolves `require` through symlinks: a symlinked package would look for its
-/// own dependencies beside the store rather than in the project. Where hard
-/// links are unavailable, such as across volumes, the file is copied instead.
-fn clone_tree(source: &Path, target: &Path) -> Result<()> {
-    create_directory(target)?;
-
-    let entries = fs::read_dir(source)
-        .map_err(|failure| error(format!("could not read {}: {failure}", source.display())))?;
-
-    for entry in entries {
-        let entry =
-            entry.map_err(|failure| error(format!("could not read a store entry: {failure}")))?;
-        let from = entry.path();
-        let to = target.join(entry.file_name());
-        let kind = entry
-            .file_type()
-            .map_err(|failure| error(format!("could not inspect {}: {failure}", from.display())))?;
-
-        // Links inside a package are followed, so the installed tree stands on
-        // its own.
-        let is_directory = if kind.is_symlink() {
-            fs::metadata(&from)
-                .map(|metadata| metadata.is_dir())
-                .unwrap_or(false)
-        } else {
-            kind.is_dir()
-        };
-
-        if is_directory {
-            clone_tree(&from, &to)?;
-        } else {
-            clone_file(&from, &to)?;
-        }
-    }
-
-    Ok(())
-}
-
-fn clone_file(from: &Path, to: &Path) -> Result<()> {
-    if fs::hard_link(from, to).is_ok() {
-        return Ok(());
-    }
-
-    fs::copy(from, to).map_err(|failure| {
-        error(format!(
-            "could not place {} at {}: {failure}",
-            from.display(),
-            to.display()
-        ))
-    })?;
-
-    Ok(())
 }
