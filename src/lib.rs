@@ -1,5 +1,7 @@
+pub mod cli;
 pub mod error;
 pub mod hash;
+pub mod linker;
 pub mod manifest;
 pub mod package;
 pub mod paths;

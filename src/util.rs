@@ -66,12 +66,58 @@ pub fn remove_any(path: &Path) -> Result<()> {
         fs::remove_file(path)
     };
 
-    removal.or_else(|failure| match fs::remove_dir(path) {
-        Ok(()) => Ok(()),
-        Err(_) if !path.exists() => Ok(()),
-        Err(_) => Err(failure),
-    })
-    .map_err(|failure| error(format!("could not remove {}: {failure}", path.display())))
+    removal
+        .or_else(|failure| match fs::remove_dir(path) {
+            Ok(()) => Ok(()),
+            Err(_) if !path.exists() => Ok(()),
+            Err(_) => Err(failure),
+        })
+        .map_err(|failure| error(format!("could not remove {}: {failure}", path.display())))
+}
+
+/// Splits a path that has to stay inside the directory it is relative to,
+/// rejecting absolute paths, Windows drive paths and `..` traversal.
+///
+/// Backslashes count as separators: a path like `package\..\..\evil` is a
+/// traversal on Windows even where the source format treats the backslash as
+/// an ordinary character.
+pub fn safe_components(raw: &str) -> Result<Vec<String>> {
+    if raw.contains('\0') {
+        return Err(error("path contains a NUL byte"));
+    }
+
+    let normalized = raw.replace('\\', "/");
+    if normalized.starts_with('/') {
+        return Err(error(format!("`{raw}` is an absolute path")));
+    }
+    if has_drive_prefix(&normalized) {
+        return Err(error(format!("`{raw}` names a Windows drive")));
+    }
+
+    let mut components = Vec::new();
+    for component in normalized.split('/') {
+        match component {
+            "" | "." => continue,
+            ".." => return Err(error(format!("`{raw}` escapes its directory with `..`"))),
+            component => components.push(component.to_string()),
+        }
+    }
+
+    if components.is_empty() {
+        return Err(error(format!("`{raw}` is not a usable path")));
+    }
+
+    Ok(components)
+}
+
+/// Whether a path starts with something like `C:`.
+pub fn has_drive_prefix(path: &str) -> bool {
+    let mut characters = path.chars();
+
+    matches!(
+        (characters.next(), characters.next()),
+        (Some(letter), Some(':')) if letter.is_ascii_alphabetic()
+    )
 }
 
 /// A name no other in-flight write will choose.
