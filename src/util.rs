@@ -1,0 +1,194 @@
+//! Small filesystem helpers shared by the cache, store and linker.
+
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use crate::error::{Result, error};
+
+static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+/// Writes a file by way of a temporary sibling, so readers never observe a
+/// half written cache entry.
+pub fn write_atomically(path: &Path, contents: &[u8]) -> Result<()> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| error(format!("{} has no parent directory", path.display())))?;
+    create_directory(parent)?;
+
+    let temporary = parent.join(temporary_name(path));
+    fs::write(&temporary, contents).map_err(|failure| {
+        error(format!(
+            "could not write {}: {failure}",
+            temporary.display()
+        ))
+    })?;
+
+    if let Err(failure) = fs::rename(&temporary, path) {
+        let _ = fs::remove_file(&temporary);
+
+        // Losing the race is fine as long as somebody produced the file.
+        if !path.exists() {
+            return Err(error(format!(
+                "could not move {} into place: {failure}",
+                path.display()
+            )));
+        }
+    }
+
+    Ok(())
+}
+
+pub fn create_directory(path: &Path) -> Result<()> {
+    fs::create_dir_all(path)
+        .map_err(|failure| error(format!("could not create {}: {failure}", path.display())))
+}
+
+/// Removes a file, directory, or symlink, ignoring anything already gone.
+pub fn remove_any(path: &Path) -> Result<()> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(failure) if failure.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(failure) => {
+            return Err(error(format!(
+                "could not inspect {}: {failure}",
+                path.display()
+            )));
+        }
+    };
+
+    // A directory symlink must be unlinked rather than followed, and on Windows
+    // that means `remove_dir` even though the link is not a real directory.
+    let removal = if metadata.is_dir() {
+        fs::remove_dir_all(path)
+    } else {
+        fs::remove_file(path)
+    };
+
+    removal
+        .or_else(|failure| match fs::remove_dir(path) {
+            Ok(()) => Ok(()),
+            Err(_) if !path.exists() => Ok(()),
+            Err(_) => Err(failure),
+        })
+        .map_err(|failure| error(format!("could not remove {}: {failure}", path.display())))
+}
+
+/// Reproduces a directory tree, hard linking files so the copy costs no extra
+/// disk space, and falling back to a real copy where hard links are
+/// unavailable, such as across volumes.
+///
+/// Links inside the source are followed so the result stands on its own.
+pub fn clone_tree(source: &Path, target: &Path) -> Result<()> {
+    create_directory(target)?;
+
+    let entries = fs::read_dir(source)
+        .map_err(|failure| error(format!("could not read {}: {failure}", source.display())))?;
+
+    for entry in entries {
+        let entry =
+            entry.map_err(|failure| error(format!("could not read a directory: {failure}")))?;
+        let from = entry.path();
+        let to = target.join(entry.file_name());
+        let kind = entry
+            .file_type()
+            .map_err(|failure| error(format!("could not inspect {}: {failure}", from.display())))?;
+
+        let is_directory = if kind.is_symlink() {
+            fs::metadata(&from)
+                .map(|metadata| metadata.is_dir())
+                .unwrap_or(false)
+        } else {
+            kind.is_dir()
+        };
+
+        if is_directory {
+            clone_tree(&from, &to)?;
+        } else {
+            clone_file(&from, &to)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Places one file at `to`, preferring a hard link over a copy.
+pub fn clone_file(from: &Path, to: &Path) -> Result<()> {
+    if fs::hard_link(from, to).is_ok() {
+        return Ok(());
+    }
+
+    fs::copy(from, to).map_err(|failure| {
+        error(format!(
+            "could not place {} at {}: {failure}",
+            from.display(),
+            to.display()
+        ))
+    })?;
+
+    Ok(())
+}
+
+/// Splits a path that has to stay inside the directory it is relative to,
+/// rejecting absolute paths, Windows drive paths and `..` traversal.
+///
+/// Backslashes count as separators: a path like `package\..\..\evil` is a
+/// traversal on Windows even where the source format treats the backslash as
+/// an ordinary character.
+pub fn safe_components(raw: &str) -> Result<Vec<String>> {
+    if raw.contains('\0') {
+        return Err(error("path contains a NUL byte"));
+    }
+
+    let normalized = raw.replace('\\', "/");
+    if normalized.starts_with('/') {
+        return Err(error(format!("`{raw}` is an absolute path")));
+    }
+    if has_drive_prefix(&normalized) {
+        return Err(error(format!("`{raw}` names a Windows drive")));
+    }
+
+    let mut components = Vec::new();
+    for component in normalized.split('/') {
+        match component {
+            "" | "." => continue,
+            ".." => return Err(error(format!("`{raw}` escapes its directory with `..`"))),
+            component => components.push(component.to_string()),
+        }
+    }
+
+    if components.is_empty() {
+        return Err(error(format!("`{raw}` is not a usable path")));
+    }
+
+    Ok(components)
+}
+
+/// Whether a path starts with something like `C:`.
+pub fn has_drive_prefix(path: &str) -> bool {
+    let mut characters = path.chars();
+
+    matches!(
+        (characters.next(), characters.next()),
+        (Some(letter), Some(':')) if letter.is_ascii_alphabetic()
+    )
+}
+
+/// A name no other in-flight write will choose.
+pub fn temporary_name(path: &Path) -> PathBuf {
+    let stem = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "entry".to_string());
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|elapsed| elapsed.subsec_nanos())
+        .unwrap_or_default();
+    let sequence = SEQUENCE.fetch_add(1, Ordering::Relaxed);
+
+    PathBuf::from(format!(
+        ".{stem}.{}-{nanos}-{sequence}.tmp",
+        std::process::id()
+    ))
+}

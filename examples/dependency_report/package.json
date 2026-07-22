@@ -1,0 +1,15 @@
+{
+  "name": "dependency_report",
+  "version": "1.0.0",
+  "description": "reports which installed versions satisfy the declared ranges",
+  "scripts": {
+    "start": "node index.js",
+    "sort-versions": "semver",
+    "satisfies": "semver -r \"^7.0.0\""
+  },
+  "dependencies": {
+    "chalk": "^4.1.0",
+    "ms": "^2.1.3",
+    "semver": "^7.5.0"
+  }
+}

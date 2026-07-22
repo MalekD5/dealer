@@ -1,8 +1,11 @@
-mod cli;
-mod manifest;
+use std::process::ExitCode;
 
-use cli::CommandResult;
-
-fn main() -> CommandResult {
-    cli::read_input()
+fn main() -> ExitCode {
+    match dealer::cli::read_input() {
+        Ok(code) => code,
+        Err(failure) => {
+            eprintln!("error: {failure}");
+            ExitCode::FAILURE
+        }
+    }
 }

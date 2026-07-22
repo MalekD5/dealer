@@ -59,6 +59,9 @@ impl Parser {
     }
 
     fn parse_single_expression(&self, expression: &str) -> Result<Vec<Comparison>, ParseError> {
+        if is_wildcard(expression) {
+            return Ok(single(ComparatorOperand::GreaterEq, Version::ZERO));
+        }
         if let Some(value) = expression
             .strip_prefix(">=")
             .or_else(|| expression.strip_prefix("=>"))
