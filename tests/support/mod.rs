@@ -2,6 +2,7 @@
 
 #![allow(dead_code)]
 
+pub mod provider;
 pub mod registry;
 
 use std::io::Write;
@@ -121,7 +122,21 @@ pub fn gzip(data: &[u8]) -> Vec<u8> {
 
 /// A minimal npm style `package.json` for a fixture package.
 pub fn manifest(name: &str, version: &str) -> String {
-    serde_json::json!({ "name": name, "version": version }).to_string()
+    manifest_with(name, version, serde_json::json!({}))
+}
+
+/// A fixture `package.json` with extra fields such as `dependencies`, `bin` or
+/// `scripts` merged in.
+pub fn manifest_with(name: &str, version: &str, extra: serde_json::Value) -> String {
+    let mut document = serde_json::json!({ "name": name, "version": version });
+
+    if let (Some(target), Some(extra)) = (document.as_object_mut(), extra.as_object()) {
+        for (key, value) in extra {
+            target.insert(key.clone(), value.clone());
+        }
+    }
+
+    document.to_string()
 }
 
 fn header(path: &str, size: usize, type_flag: u8, mode: u32, link: &str) -> [u8; BLOCK_LENGTH] {
