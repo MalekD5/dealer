@@ -54,8 +54,16 @@ fn streaming_updates_match_a_single_call() {
             sha1.update(chunk);
         }
 
-        assert_eq!(sha512.finish(), Sha512::digest(&message), "chunk size {chunk_size}");
-        assert_eq!(sha1.finish(), Sha1::digest(&message), "chunk size {chunk_size}");
+        assert_eq!(
+            sha512.finish(),
+            Sha512::digest(&message),
+            "chunk size {chunk_size}"
+        );
+        assert_eq!(
+            sha1.finish(),
+            Sha1::digest(&message),
+            "chunk size {chunk_size}"
+        );
     }
 }
 

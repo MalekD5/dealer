@@ -10,10 +10,10 @@ use crate::error::{Result, error};
 /// `DEALER_HOME` overrides the default, which keeps tests and sandboxes from
 /// touching a developer's real cache.
 pub fn home_directory() -> Result<PathBuf> {
-    if let Some(overridden) = env::var_os("DEALER_HOME") {
-        if !overridden.is_empty() {
-            return Ok(PathBuf::from(overridden));
-        }
+    if let Some(overridden) = env::var_os("DEALER_HOME")
+        && !overridden.is_empty()
+    {
+        return Ok(PathBuf::from(overridden));
     }
 
     #[cfg(windows)]

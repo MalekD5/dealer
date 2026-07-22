@@ -55,9 +55,7 @@ impl FakeProvider {
 
     /// The package names whose version list has been asked for, in order.
     pub fn lookups(&self) -> Vec<String> {
-        self.lookups
-            .borrow()
-            .clone()
+        self.lookups.borrow().clone()
     }
 }
 
@@ -65,10 +63,11 @@ impl PackageProvider for FakeProvider {
     fn versions(&self, name: &str) -> Result<VersionIndex> {
         self.lookups.borrow_mut().push(name.to_string());
 
-        let versions = self
-            .packages
-            .get(name)
-            .ok_or_else(|| error(format!("package `{name}` was not found in the test registry")))?;
+        let versions = self.packages.get(name).ok_or_else(|| {
+            error(format!(
+                "package `{name}` was not found in the test registry"
+            ))
+        })?;
 
         Ok(VersionIndex {
             versions: versions.keys().cloned().collect(),
@@ -88,8 +87,8 @@ impl PackageProvider for FakeProvider {
         let bytes = std::fs::read(path)
             .map_err(|failure| error(format!("could not read {}: {failure}", path.display())))?;
         let metadata = read_manifest(&bytes)?;
-        let integrity =
-            Integrity::new(HashAlgorithm::Sha512, Sha512::digest(&bytes).to_vec()).map_err(error)?;
+        let integrity = Integrity::new(HashAlgorithm::Sha512, Sha512::digest(&bytes).to_vec())
+            .map_err(error)?;
 
         ResolvedPackage::from_metadata(
             &metadata,

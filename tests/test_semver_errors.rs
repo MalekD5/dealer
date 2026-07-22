@@ -28,7 +28,7 @@ fn rejects_incomplete_or_malformed_versions() {
 
 #[test]
 fn rejects_malformed_wildcards() {
-    for expression in ["x", "*.1", "1.x.3", "1.2.x.4"] {
+    for expression in ["*.1", "1.x.3", "1.2.x.4", "x.1.2"] {
         assert_invalid(expression);
     }
 }

@@ -33,12 +33,24 @@ impl TarballBuilder {
 
     /// Adds a regular file rooted at the conventional `package/` directory.
     pub fn file(mut self, path: &str, contents: &str) -> Self {
-        self.push(&format!("package/{path}"), contents.as_bytes(), REGULAR_FILE, 0o644, "");
+        self.push(
+            &format!("package/{path}"),
+            contents.as_bytes(),
+            REGULAR_FILE,
+            0o644,
+            "",
+        );
         self
     }
 
     pub fn executable(mut self, path: &str, contents: &str) -> Self {
-        self.push(&format!("package/{path}"), contents.as_bytes(), REGULAR_FILE, 0o755, "");
+        self.push(
+            &format!("package/{path}"),
+            contents.as_bytes(),
+            REGULAR_FILE,
+            0o755,
+            "",
+        );
         self
     }
 
@@ -87,7 +99,13 @@ impl TarballBuilder {
         let record = pax_record("path", &path);
 
         self.push("PaxHeaders/entry", record.as_bytes(), PAX_HEADER, 0o644, "");
-        self.push("package/placeholder", contents.as_bytes(), REGULAR_FILE, 0o644, "");
+        self.push(
+            "package/placeholder",
+            contents.as_bytes(),
+            REGULAR_FILE,
+            0o644,
+            "",
+        );
         self
     }
 
@@ -116,7 +134,9 @@ impl TarballBuilder {
 /// Compresses bytes as a gzip stream.
 pub fn gzip(data: &[u8]) -> Vec<u8> {
     let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
-    encoder.write_all(data).expect("gzip encoding should succeed");
+    encoder
+        .write_all(data)
+        .expect("gzip encoding should succeed");
     encoder.finish().expect("gzip stream should finish")
 }
 

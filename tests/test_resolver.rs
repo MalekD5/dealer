@@ -145,9 +145,18 @@ fn reports_a_conflict_with_every_requirement_that_caused_it() {
 
     let failure = rejection(&provider, &["old@1.0.0", "new@1.0.0"]);
 
-    assert!(failure.contains("cannot satisfy every requirement for `shared`"), "{failure}");
-    assert!(failure.contains("^1.0.0 is required by old@1.0.0"), "{failure}");
-    assert!(failure.contains("^2.0.0 is required by new@1.0.0"), "{failure}");
+    assert!(
+        failure.contains("cannot satisfy every requirement for `shared`"),
+        "{failure}"
+    );
+    assert!(
+        failure.contains("^1.0.0 is required by old@1.0.0"),
+        "{failure}"
+    );
+    assert!(
+        failure.contains("^2.0.0 is required by new@1.0.0"),
+        "{failure}"
+    );
 }
 
 #[test]
@@ -156,7 +165,10 @@ fn reports_a_root_range_nothing_satisfies() {
 
     let failure = rejection(&provider, &["shared@^9.0.0"]);
 
-    assert!(failure.contains("^9.0.0 is required by the project"), "{failure}");
+    assert!(
+        failure.contains("^9.0.0 is required by the project"),
+        "{failure}"
+    );
 }
 
 /// The plan must not depend on the order the roots were given in, so repeated
@@ -217,13 +229,21 @@ fn reports_a_local_tarball_that_no_range_accepts() {
     let (_directory, path) = local_tarball("fixture", "1.0.0", json!({}));
 
     let failure = Resolver::new(&provider)
-        .resolve(&requests(&["needs-fixture@1.0.0"])
-            .into_iter()
-            .chain([PackageSource::parse_specifier(&path.to_string_lossy()).unwrap()])
-            .collect::<Vec<_>>())
+        .resolve(
+            &requests(&["needs-fixture@1.0.0"])
+                .into_iter()
+                .chain([PackageSource::parse_specifier(&path.to_string_lossy()).unwrap()])
+                .collect::<Vec<_>>(),
+        )
         .expect_err("the pinned version does not satisfy the range")
         .to_string();
 
-    assert!(failure.contains("a local tarball pins `fixture` to 1.0.0"), "{failure}");
-    assert!(failure.contains("^2.0.0 is required by needs-fixture@1.0.0"), "{failure}");
+    assert!(
+        failure.contains("a local tarball pins `fixture` to 1.0.0"),
+        "{failure}"
+    );
+    assert!(
+        failure.contains("^2.0.0 is required by needs-fixture@1.0.0"),
+        "{failure}"
+    );
 }

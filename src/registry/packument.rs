@@ -112,11 +112,7 @@ impl Packument {
     fn describe_versions(&self) -> String {
         let total = self.versions.len();
         let listed: Vec<&str> = self.versions().rev().take(REPORTED_VERSIONS).collect();
-        let mut described = listed
-            .into_iter()
-            .rev()
-            .collect::<Vec<_>>()
-            .join(", ");
+        let mut described = listed.into_iter().rev().collect::<Vec<_>>().join(", ");
 
         if total > REPORTED_VERSIONS {
             described = format!("{} more, {described}", total - REPORTED_VERSIONS);

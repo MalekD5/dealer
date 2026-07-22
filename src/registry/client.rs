@@ -128,9 +128,7 @@ impl RegistryClient {
             ureq::Error::StatusCode(status) if status >= 500 => error(format!(
                 "{registry} failed to serve `{name}` (HTTP {status}); the registry may be down"
             )),
-            ureq::Error::StatusCode(status) => {
-                error(format!("{url} responded with HTTP {status}"))
-            }
+            ureq::Error::StatusCode(status) => error(format!("{url} responded with HTTP {status}")),
             ureq::Error::HostNotFound => error(format!(
                 "could not resolve the host for {registry}; check the registry URL and your network"
             )),

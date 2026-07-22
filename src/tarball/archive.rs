@@ -208,7 +208,10 @@ fn join_prefixed_name(prefix: &[u8], name: &[u8]) -> String {
 }
 
 fn read_string(field: &[u8]) -> String {
-    let end = field.iter().position(|byte| *byte == 0).unwrap_or(field.len());
+    let end = field
+        .iter()
+        .position(|byte| *byte == 0)
+        .unwrap_or(field.len());
     String::from_utf8_lossy(&field[..end]).into_owned()
 }
 
@@ -216,9 +219,11 @@ fn read_string(field: &[u8]) -> String {
 /// values too large to fit.
 fn parse_number(field: &[u8]) -> Option<u64> {
     if field.first().is_some_and(|byte| byte & 0x80 != 0) {
-        return field[1..].iter().try_fold(u64::from(field[0] & 0x7f), |value, byte| {
-            value.checked_mul(256)?.checked_add(u64::from(*byte))
-        });
+        return field[1..]
+            .iter()
+            .try_fold(u64::from(field[0] & 0x7f), |value, byte| {
+                value.checked_mul(256)?.checked_add(u64::from(*byte))
+            });
     }
 
     let digits: Vec<u8> = field
@@ -242,7 +247,11 @@ fn verify_checksum(header: &[u8]) -> Result<()> {
     let mut unsigned: u64 = 0;
     let mut signed: i64 = 0;
     for (index, byte) in header.iter().enumerate() {
-        let byte = if CHECKSUM.contains(&index) { b' ' } else { *byte };
+        let byte = if CHECKSUM.contains(&index) {
+            b' '
+        } else {
+            *byte
+        };
         unsigned += u64::from(byte);
         signed += i64::from(byte as i8);
     }

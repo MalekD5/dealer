@@ -7,7 +7,12 @@ use dealer::tarball::{extract_package, read_manifest};
 use support::{CHARACTER_DEVICE, REGULAR_FILE, TarballBuilder, corrupt_checksum, gzip};
 use tempfile::TempDir;
 
-fn extract(tarball: &[u8]) -> (TempDir, Result<(), Box<dyn std::error::Error + Send + Sync>>) {
+fn extract(
+    tarball: &[u8],
+) -> (
+    TempDir,
+    Result<(), Box<dyn std::error::Error + Send + Sync>>,
+) {
     let destination = tempfile::tempdir().expect("temporary directory should be created");
     let outcome = extract_package(tarball, destination.path());
 
@@ -24,9 +29,7 @@ fn extract_expecting_success(tarball: &[u8]) -> TempDir {
 fn rejection(tarball: &[u8]) -> String {
     let (_destination, outcome) = extract(tarball);
 
-    outcome
-        .expect_err("archive should be rejected")
-        .to_string()
+    outcome.expect_err("archive should be rejected").to_string()
 }
 
 fn read(root: &Path, path: &str) -> String {
@@ -45,7 +48,10 @@ fn extracts_a_package_and_strips_the_root_directory() {
     let destination = extract_expecting_success(&tarball);
     let root = destination.path();
 
-    assert!(!root.join("package").exists(), "the npm root should be stripped");
+    assert!(
+        !root.join("package").exists(),
+        "the npm root should be stripped"
+    );
     assert_eq!(read(root, "index.js"), "module.exports = 1;\n");
     assert_eq!(read(root, "lib/nested/deep.js"), "// deep\n");
     assert!(root.join("lib").is_dir());
@@ -71,7 +77,9 @@ fn reports_a_tarball_with_no_manifest() {
     let failure = read_manifest(&tarball).expect_err("a manifest is required");
 
     assert!(
-        failure.to_string().contains("does not contain a package.json"),
+        failure
+            .to_string()
+            .contains("does not contain a package.json"),
         "{failure}"
     );
 }
@@ -101,7 +109,7 @@ fn rejects_paths_that_climb_out_of_the_package() {
         .raw("package/../../escaped.js", "// escaped\n", REGULAR_FILE)
         .build();
 
-    assert!(rejection(&tarball).contains("escapes the package directory"));
+    assert!(rejection(&tarball).contains("escapes its directory"));
 }
 
 #[test]
@@ -120,7 +128,7 @@ fn rejects_backslash_traversal() {
         .raw("package\\..\\..\\escaped.js", "// escaped\n", REGULAR_FILE)
         .build();
 
-    assert!(rejection(&tarball).contains("escapes the package directory"));
+    assert!(rejection(&tarball).contains("escapes its directory"));
 }
 
 #[test]
@@ -189,7 +197,9 @@ fn rejects_entries_that_are_not_files_directories_or_links() {
 
 #[test]
 fn rejects_a_corrupt_header_checksum() {
-    let tar = TarballBuilder::new().file("index.js", "// entry\n").into_tar();
+    let tar = TarballBuilder::new()
+        .file("index.js", "// entry\n")
+        .into_tar();
 
     assert!(rejection(&gzip(&corrupt_checksum(tar))).contains("checksum"));
 }
@@ -229,7 +239,11 @@ fn keeps_the_executable_bit_on_program_files() {
     };
 
     assert_ne!(mode("cli.js"), 0, "cli.js should stay executable");
-    assert_eq!(mode("index.js"), 0, "plain files should not become executable");
+    assert_eq!(
+        mode("index.js"),
+        0,
+        "plain files should not become executable"
+    );
 }
 
 #[test]

@@ -60,7 +60,9 @@ fn resolves_dist_tags_and_wildcards() {
     registry.serve(&metadata_path("left-pad"), Route::json(&packument));
 
     let client = RegistryClient::with_base_url(registry.base_url());
-    let packument = client.packument("left-pad").expect("metadata should be served");
+    let packument = client
+        .packument("left-pad")
+        .expect("metadata should be served");
 
     assert_eq!(packument.resolve("latest").unwrap().version, "1.0.0");
     assert_eq!(packument.resolve("next").unwrap().version, "2.0.0");
@@ -101,9 +103,18 @@ fn reads_dependencies_and_integrity_from_the_packument() {
         .resolve("1.0.0")
         .expect("the exact version should resolve");
 
-    assert_eq!(resolved.dependencies.get("ansi").map(String::as_str), Some("^2.0.0"));
-    assert_eq!(resolved.bin.get("left-pad").map(String::as_str), Some("cli.js"));
-    assert_eq!(resolved.integrity.unwrap().to_string(), integrity_of(&tarball));
+    assert_eq!(
+        resolved.dependencies.get("ansi").map(String::as_str),
+        Some("^2.0.0")
+    );
+    assert_eq!(
+        resolved.bin.get("left-pad").map(String::as_str),
+        Some("cli.js")
+    );
+    assert_eq!(
+        resolved.integrity.unwrap().to_string(),
+        integrity_of(&tarball)
+    );
 }
 
 #[test]
@@ -120,11 +131,18 @@ fn falls_back_to_the_legacy_shasum() {
     registry.serve(&metadata_path("left-pad"), Route::json(&packument));
 
     let client = RegistryClient::with_base_url(registry.base_url());
-    let resolved = client.packument("left-pad").unwrap().resolve("1.0.0").unwrap();
+    let resolved = client
+        .packument("left-pad")
+        .unwrap()
+        .resolve("1.0.0")
+        .unwrap();
     let integrity = resolved.integrity.expect("the shasum should be read");
 
     assert_eq!(integrity.algorithm(), HashAlgorithm::Sha1);
-    assert_eq!(integrity.to_hex(), "da39a3ee5e6b4b0d3255bfef95601890afd80709");
+    assert_eq!(
+        integrity.to_hex(),
+        "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    );
 }
 
 #[test]
@@ -148,7 +166,9 @@ fn reports_server_side_failures_with_the_status() {
     registry.serve(&metadata_path("flaky"), Route::status(503));
 
     let client = RegistryClient::with_base_url(registry.base_url());
-    let failure = client.packument("flaky").expect_err("503 should be an error");
+    let failure = client
+        .packument("flaky")
+        .expect_err("503 should be an error");
 
     assert!(failure.to_string().contains("503"), "{failure}");
     assert!(failure.to_string().contains("may be down"), "{failure}");
@@ -170,7 +190,10 @@ fn reports_a_range_that_nothing_satisfies() {
         .resolve("^9.0.0")
         .expect_err("no version satisfies the range");
 
-    assert!(failure.to_string().contains("no published version"), "{failure}");
+    assert!(
+        failure.to_string().contains("no published version"),
+        "{failure}"
+    );
     assert!(failure.to_string().contains("1.1.0"), "{failure}");
 }
 
@@ -184,7 +207,9 @@ fn fetches_each_packument_once() {
 
     let client = RegistryClient::with_base_url(registry.base_url());
     for _ in 0..3 {
-        client.packument("left-pad").expect("metadata should be served");
+        client
+            .packument("left-pad")
+            .expect("metadata should be served");
     }
 
     assert_eq!(registry.request_count("/left-pad"), 1);
@@ -203,16 +228,28 @@ fn downloads_a_tarball_once_and_reuses_the_cache() {
     let cache_root = tempfile::tempdir().expect("cache directory should be created");
     let client = RegistryClient::with_base_url(registry.base_url());
     let cache = TarballCache::new(cache_root.path().to_path_buf(), &client);
-    let resolved = client.packument("left-pad").unwrap().resolve("1.0.0").unwrap();
+    let resolved = client
+        .packument("left-pad")
+        .unwrap()
+        .resolve("1.0.0")
+        .unwrap();
 
-    let first = cache.acquire(&resolved).expect("the tarball should download");
+    let first = cache
+        .acquire(&resolved)
+        .expect("the tarball should download");
     let second = cache.acquire(&resolved).expect("the cache should answer");
 
     assert!(!first.reused, "the first acquisition downloads");
-    assert!(second.reused, "the second acquisition is served from the cache");
+    assert!(
+        second.reused,
+        "the second acquisition is served from the cache"
+    );
     assert_eq!(first.bytes, tarball);
     assert_eq!(first.digest, second.digest);
-    assert_eq!(registry.request_count(&tarball_path("left-pad", "1.0.0")), 1);
+    assert_eq!(
+        registry.request_count(&tarball_path("left-pad", "1.0.0")),
+        1
+    );
 }
 
 #[test]
@@ -221,20 +258,31 @@ fn rejects_a_tarball_that_fails_its_checksum() {
     let tarball = fixture_tarball("left-pad", "1.0.0");
     let packument = PackumentBuilder::new(registry.base_url(), "left-pad")
         .version("1.0.0", &[])
-        .with_dist_field("1.0.0", "integrity", json!(integrity_of(b"different bytes")))
+        .with_dist_field(
+            "1.0.0",
+            "integrity",
+            json!(integrity_of(b"different bytes")),
+        )
         .build();
     registry.publish("left-pad", "1.0.0", &packument, tarball);
 
     let cache_root = tempfile::tempdir().expect("cache directory should be created");
     let client = RegistryClient::with_base_url(registry.base_url());
     let cache = TarballCache::new(cache_root.path().to_path_buf(), &client);
-    let resolved = client.packument("left-pad").unwrap().resolve("1.0.0").unwrap();
+    let resolved = client
+        .packument("left-pad")
+        .unwrap()
+        .resolve("1.0.0")
+        .unwrap();
 
     let failure = cache
         .acquire(&resolved)
         .expect_err("a mismatched checksum should be rejected");
 
-    assert!(failure.to_string().contains("integrity check failed"), "{failure}");
+    assert!(
+        failure.to_string().contains("integrity check failed"),
+        "{failure}"
+    );
 }
 
 #[test]
@@ -270,7 +318,10 @@ fn the_store_replaces_an_incomplete_entry() {
     std::fs::write(leftover.join("stale.js"), "// interrupted").unwrap();
 
     let entry = store
-        .insert("left-pad@1.0.0-abcdef", &fixture_tarball("left-pad", "1.0.0"))
+        .insert(
+            "left-pad@1.0.0-abcdef",
+            &fixture_tarball("left-pad", "1.0.0"),
+        )
         .unwrap();
 
     assert!(!entry.reused);

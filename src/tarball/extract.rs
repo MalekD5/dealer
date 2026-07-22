@@ -3,7 +3,6 @@
 //! Archives arrive from the network, so every path and link is validated
 //! against the destination directory before anything touches the filesystem.
 
-use std::collections::VecDeque;
 use std::fs;
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
@@ -12,6 +11,7 @@ use flate2::read::GzDecoder;
 
 use super::archive::{ArchiveReader, Entry, EntryKind};
 use crate::error::{Result, error};
+use crate::util::{has_drive_prefix, safe_components};
 
 /// Ceilings that keep a hostile archive from filling the disk.
 const MAX_DECOMPRESSED_BYTES: u64 = 512 * 1024 * 1024;
@@ -184,7 +184,11 @@ fn materialize_link(link: &PendingLink, destination: &Path) -> Result<()> {
 
     // Hard links, and every link on Windows, are materialised as copies so the
     // extracted tree stays self contained and needs no elevated privileges.
-    let kind = if link.symbolic { "symlink" } else { "hard link" };
+    let kind = if link.symbolic {
+        "symlink"
+    } else {
+        "hard link"
+    };
     if !target.is_file() {
         return Err(error(format!(
             "`{}` is a {kind} to `{}`, which the package does not contain",
@@ -209,53 +213,14 @@ fn materialize_link(link: &PendingLink, destination: &Path) -> Result<()> {
 ///
 /// Returns `Ok(None)` for entries that are only that root directory.
 fn strip_archive_root(raw: &str) -> Result<Option<PathBuf>> {
-    let mut components = safe_components(raw)?;
-    components.pop_front();
+    let components =
+        safe_components(raw).map_err(|failure| error(format!("archive entry {failure}")))?;
 
-    if components.is_empty() {
+    if components.len() < 2 {
         return Ok(None);
     }
 
-    Ok(Some(components.iter().collect()))
-}
-
-/// Splits an archive path, rejecting anything that could escape the
-/// destination directory.
-fn safe_components(raw: &str) -> Result<VecDeque<String>> {
-    if raw.contains('\0') {
-        return Err(error("archive path contains a NUL byte"));
-    }
-
-    // Backslashes separate directories on Windows, so a path like
-    // `package\..\..\evil` is a traversal there even though tar treats the
-    // backslash as an ordinary character.
-    let normalized = raw.replace('\\', "/");
-
-    if normalized.starts_with('/') {
-        return Err(error(format!("`{raw}` is an absolute path")));
-    }
-    if has_drive_prefix(&normalized) {
-        return Err(error(format!("`{raw}` names a Windows drive")));
-    }
-
-    let mut components = VecDeque::new();
-    for component in normalized.split('/') {
-        match component {
-            "" | "." => continue,
-            ".." => {
-                return Err(error(format!(
-                    "`{raw}` escapes the package directory with `..`"
-                )));
-            }
-            component => components.push_back(component.to_string()),
-        }
-    }
-
-    if components.is_empty() {
-        return Err(error(format!("`{raw}` is not a usable path")));
-    }
-
-    Ok(components)
+    Ok(Some(components[1..].iter().collect()))
 }
 
 /// Resolves a relative link target lexically and rejects targets that climb
@@ -293,12 +258,4 @@ fn resolve_within_root(base: &Path, target: &str) -> Option<PathBuf> {
     }
 
     Some(resolved.iter().collect())
-}
-
-fn has_drive_prefix(path: &str) -> bool {
-    let mut characters = path.chars();
-    matches!(
-        (characters.next(), characters.next()),
-        (Some(letter), Some(':')) if letter.is_ascii_alphabetic()
-    )
 }

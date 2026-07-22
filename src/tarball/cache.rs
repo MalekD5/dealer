@@ -49,7 +49,10 @@ impl<'a> TarballCache<'a> {
     /// Reads a `.tgz` that already exists on disk.
     pub fn read_local(&self, path: &Path, integrity: Option<&Integrity>) -> Result<Artifact> {
         let bytes = fs::read(path).map_err(|failure| {
-            error(format!("could not read tarball {}: {failure}", path.display()))
+            error(format!(
+                "could not read tarball {}: {failure}",
+                path.display()
+            ))
         })?;
 
         if let Some(integrity) = integrity {
@@ -115,8 +118,7 @@ impl<'a> TarballCache<'a> {
             .take(KEY_LENGTH)
             .collect();
 
-        self.root
-            .join(format!("{}-{key}.tgz", file_stem(package)))
+        self.root.join(format!("{}-{key}.tgz", file_stem(package)))
     }
 }
 

@@ -71,6 +71,18 @@ fn expands_wildcard_ranges() {
     );
 }
 
+/// npm manifests write a bare wildcard when any version will do, which is also
+/// what an empty specifier and the `latest` tag mean.
+#[test]
+fn a_bare_wildcard_matches_every_version() {
+    let candidates = ["1.0.0", "2.5.1", "10.0.0"];
+    let expected = versions(&["10.0.0", "2.5.1", "1.0.0"]);
+
+    assert_eq!(selected("*", &candidates), expected);
+    assert_eq!(selected("x", &candidates), expected);
+    assert_eq!(selected("X", &candidates), expected);
+}
+
 #[test]
 fn expands_tilde_ranges() {
     assert_eq!(

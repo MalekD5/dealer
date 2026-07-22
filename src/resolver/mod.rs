@@ -55,10 +55,13 @@ impl<'a> Resolver<'a> {
                 }
                 PackageSource::Registry { name, range } => {
                     state.roots.insert(name.clone());
-                    state.require(name, Requirement {
-                        range: range.clone(),
-                        requested_by: PROJECT.to_string(),
-                    });
+                    state.require(
+                        name,
+                        Requirement {
+                            range: range.clone(),
+                            requested_by: PROJECT.to_string(),
+                        },
+                    );
                 }
             }
         }
@@ -101,11 +104,12 @@ impl<'a> Resolver<'a> {
         let index = self.provider.versions(name)?;
         if let Some(current) = state.selected.get(name) {
             let version = current.version.clone();
-            let still_valid = requirements
-                .iter()
-                .try_fold(true, |valid, requirement| -> Result<bool> {
-                    Ok(valid && admits(&index, &requirement.range, &version)?)
-                })?;
+            let still_valid =
+                requirements
+                    .iter()
+                    .try_fold(true, |valid, requirement| -> Result<bool> {
+                        Ok(valid && admits(&index, &requirement.range, &version)?)
+                    })?;
 
             if still_valid {
                 return Ok(());
@@ -123,15 +127,17 @@ impl<'a> Resolver<'a> {
         state.selected.insert(package.name.clone(), package);
 
         for (name, range) in dependencies {
-            let source = PackageSource::parse(&name, &range).map_err(|reason| {
-                error(format!("{requested_by} depends on `{name}`: {reason}"))
-            })?;
+            let source = PackageSource::parse(&name, &range)
+                .map_err(|reason| error(format!("{requested_by} depends on `{name}`: {reason}")))?;
 
             match source {
-                PackageSource::Registry { name, range } => state.require(&name, Requirement {
-                    range,
-                    requested_by: requested_by.clone(),
-                }),
+                PackageSource::Registry { name, range } => state.require(
+                    &name,
+                    Requirement {
+                        range,
+                        requested_by: requested_by.clone(),
+                    },
+                ),
                 PackageSource::LocalTarball { path, .. } => {
                     state.pin(self.provider.local_package(&path)?)?;
                 }
@@ -228,8 +234,11 @@ fn matching_versions(index: &VersionIndex, name: &str, range: &str) -> Result<Ve
         return Ok(vec![version.clone()]);
     }
 
-    select_version(range.to_string(), index.versions.clone())
-        .map_err(|failure| error(format!("`{range}` is not a valid range for `{name}`: {failure}")))
+    select_version(range.to_string(), index.versions.clone()).map_err(|failure| {
+        error(format!(
+            "`{range}` is not a valid range for `{name}`: {failure}"
+        ))
+    })
 }
 
 fn admits(index: &VersionIndex, range: &str, version: &str) -> Result<bool> {
