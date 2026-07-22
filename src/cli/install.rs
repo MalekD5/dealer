@@ -147,21 +147,32 @@ fn summarize(plan: &InstallPlan, report: &LinkReport, started: Instant) {
     }
 
     let elapsed = started.elapsed().as_secs_f64();
-    if plan.is_empty() {
+    if plan.is_empty() && report.removed.is_empty() {
         println!("no dependencies to install");
         return;
     }
 
-    if report.linked.is_empty() && report.removed.is_empty() {
+    let mut changes = Vec::new();
+    if !report.linked.is_empty() {
+        changes.push(format!("installed {}", packages(report.linked.len())));
+    }
+    if !report.removed.is_empty() {
+        changes.push(format!("removed {}", packages(report.removed.len())));
+    }
+
+    if changes.is_empty() {
         println!("up to date, {} in {elapsed:.1}s", packages(plan.len()));
         return;
     }
 
-    println!(
-        "installed {} of {} in {elapsed:.1}s",
-        packages(report.linked.len()),
-        packages(plan.len())
-    );
+    if !report.unchanged.is_empty() {
+        changes.push(format!(
+            "{} already present",
+            packages(report.unchanged.len())
+        ));
+    }
+
+    println!("{} in {elapsed:.1}s", changes.join(", "));
 }
 
 fn packages(count: usize) -> String {
