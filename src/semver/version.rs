@@ -6,6 +6,12 @@ pub(crate) struct Version {
 }
 
 impl Version {
+    pub(crate) const ZERO: Version = Version {
+        major: 0,
+        minor: 0,
+        patch: 0,
+    };
+
     pub(crate) fn parse(version: &str) -> Option<Version> {
         let mut parts = version.split('.');
         let major = parts.next()?.parse().ok()?;
