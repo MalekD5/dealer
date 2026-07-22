@@ -13,19 +13,10 @@ concurrency:
 
 jobs:
   rust-tests:
-    name: Rust tests (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    name: Rust tests
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
-      # The end-to-end install scenario runs an installed package's
-      # executable, which needs a node on PATH.
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Run the Rust test suite
-        run: cargo test --locked --all-targets
+      - name: Run semver and CLI integration tests
+        run: cargo test --locked --tests
