@@ -1,18 +1,20 @@
 use std::fs::OpenOptions;
 use std::io::{ErrorKind, Write};
+use std::process::ExitCode;
 
 use super::cli::CommandResult;
+use crate::manifest::json_loader::MANIFEST_FILE;
 use crate::manifest::package_name::normalize_package_name;
 
 pub fn init() -> CommandResult {
     let directory = std::env::current_dir()?;
-    let path = directory.join("package.json");
+    let path = directory.join(MANIFEST_FILE);
 
     let mut file = match OpenOptions::new().write(true).create_new(true).open(&path) {
         Ok(file) => file,
         Err(error) if error.kind() == ErrorKind::AlreadyExists => {
             println!("package.json already found");
-            return Ok(());
+            return Ok(ExitCode::SUCCESS);
         }
         Err(error) => return Err(error.into()),
     };
@@ -32,5 +34,5 @@ pub fn init() -> CommandResult {
     writeln!(file)?;
     println!("created package.json");
 
-    Ok(())
+    Ok(ExitCode::SUCCESS)
 }
